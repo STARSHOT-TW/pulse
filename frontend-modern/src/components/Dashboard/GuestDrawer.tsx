@@ -7,6 +7,7 @@ import { ResourceType, HistoryTimeRange } from '@/api/charts';
 import { hasFeature } from '@/stores/license';
 import { DiscoveryTab } from '../Discovery/DiscoveryTab';
 import type { ResourceType as DiscoveryResourceType } from '@/types/discovery';
+import { LogsTab } from './LogsTab';
 
 type Guest = VM | Container;
 
@@ -105,13 +106,13 @@ export const GuestDrawer: Component<GuestDrawerProps> = (props) => {
         return { type, id };
     };
 
-    const [activeTab, setActiveTab] = createSignal<'overview' | 'discovery'>('overview');
+    const [activeTab, setActiveTab] = createSignal<'overview' | 'discovery' | 'logs'>('overview');
 
     // All tabs are always rendered (hidden via CSS) to avoid any DOM
     // mount/unmount during tab switches. Mounting new components inside
     // a <For>-rendered table row causes SolidJS to recreate the row,
     // which detaches the element and resets the scroll container.
-    const switchTab = (tab: 'overview' | 'discovery') => {
+    const switchTab = (tab: 'overview' | 'discovery' | 'logs') => {
         setActiveTab(tab);
     };
 
@@ -147,6 +148,18 @@ export const GuestDrawer: Component<GuestDrawerProps> = (props) => {
                 >
                     Discovery
                     {activeTab() === 'discovery' && (
+                        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400 rounded-t-full" />
+                    )}
+                </button>
+                <button
+                    onClick={() => switchTab('logs')}
+                    class={`pb-2 text-sm font-medium transition-colors relative ${activeTab() === 'logs'
+                        ? 'text-blue-600 dark:text-blue-400'
+                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                        }`}
+                >
+                    Logs
+                    {activeTab() === 'logs' && (
                         <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400 rounded-t-full" />
                     )}
                 </button>
@@ -488,6 +501,11 @@ export const GuestDrawer: Component<GuestDrawerProps> = (props) => {
                             onCustomUrlChange={(url) => props.onCustomUrlChange?.(guestId(), url)}
                         />
                     </Suspense>
+                </div>
+
+                {/* Logs tab - Always rendered, hidden via CSS */}
+                <div class={activeTab() === 'logs' ? '' : 'hidden'} style={{ "overflow-anchor": "none" }}>
+                    <LogsTab vmName={props.guest.name} />
                 </div>
         </div>
     );
