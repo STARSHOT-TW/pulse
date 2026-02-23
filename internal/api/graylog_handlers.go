@@ -28,15 +28,17 @@ type graylogLogsResponse struct {
 	VM    string           `json:"vm"`
 }
 
-// graylogScriptingResponse is the JSON shape returned by
-// POST /api/search/messages with Accept: application/json (Graylog 7.x).
+// graylogViewsResponse is the JSON shape returned by
+// POST /api/views/search/messages (Graylog 7.x Views API).
+//
+// Example structure:
 //
 //	{
-//	  "schema":   [ {"field":"timestamp",...}, ... ],
-//	  "datarows": [ ["2025-01-01T...", "ubuntu", "kernel: ...", "6"], ... ],
+//	  "schema": [ {"field":"timestamp",...}, {"field":"source",...}, ... ],
+//	  "datarows": [ ["2025-02-13T10:30:00.123Z", "ubuntu", "kernel: msg", "6"], ... ],
 //	  "metadata": { ... }
 //	}
-type graylogScriptingResponse struct {
+type graylogViewsResponse struct {
 	Schema []struct {
 		Field string `json:"field"`
 	} `json:"schema"`
@@ -81,19 +83,18 @@ func (r *Router) handleGraylogLogs(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	// --- build Graylog scripting API request body ---
-	// POST /api/search/messages (Graylog 7.x scripting API)
-	// Newest-first: sort by timestamp desc.
+	// --- build Graylog Views API request body ---
+	// POST /api/views/search/messages (Graylog 7.x)
+	// Match the exact structure from the working curl command.
 	body := map[string]interface{}{
 		"query_string": fmt.Sprintf("source:%s", vmName),
 		"timerange": map[string]interface{}{
 			"type":  "relative",
-			"range": 86400, // last 24 h
+			"range": 86400, // last 24 hours in seconds
 		},
+		"limit":      limit,
+		"chunk_size": limit,
 		"fields_in_order": []string{"timestamp", "source", "message", "level"},
-		"sort":            "timestamp",
-		"sort_order":      "desc",
-		"limit":           limit,
 	}
 
 	bodyBytes, err := json.Marshal(body)
@@ -103,8 +104,11 @@ func (r *Router) handleGraylogLogs(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// Use the Views API endpoint: /api/views/search/messages
+	graylogURL := baseURL + "/api/views/search/messages"
+
 	client := &http.Client{Timeout: 10 * time.Second}
-	graylogReq, err := http.NewRequest(http.MethodPost, baseURL+"/api/search/messages", bytes.NewReader(bodyBytes))
+	graylogReq, err := http.NewRequest(http.MethodPost, graylogURL, bytes.NewReader(bodyBytes))
 	if err != nil {
 		log.Error().Err(err).Msg("graylog: failed to build request")
 		http.Error(w, "Failed to build Graylog request", http.StatusInternalServerError)
@@ -112,7 +116,6 @@ func (r *Router) handleGraylogLogs(w http.ResponseWriter, req *http.Request) {
 	}
 	graylogReq.SetBasicAuth(user, pass)
 	graylogReq.Header.Set("Content-Type", "application/json")
-	graylogReq.Header.Set("Accept", "application/json")
 	graylogReq.Header.Set("X-Requested-By", "pulse")
 
 	resp, err := client.Do(graylogReq)
@@ -125,27 +128,28 @@ func (r *Router) handleGraylogLogs(w http.ResponseWriter, req *http.Request) {
 
 	if resp.StatusCode != http.StatusOK {
 		raw, _ := io.ReadAll(resp.Body)
-		log.Error().Int("status", resp.StatusCode).Str("body", string(raw)).Msg("graylog: unexpected status")
+		log.Error().Int("status", resp.StatusCode).Str("body", string(raw)).Str("vm", vmName).Msg("graylog: unexpected status")
 		http.Error(w, fmt.Sprintf("Graylog returned HTTP %d", resp.StatusCode), http.StatusBadGateway)
 		return
 	}
 
-	// --- parse Graylog 7.x scripting API response ---
-	// Response shape: { schema: [{field, name, ...}], datarows: [[v0,v1,...], ...] }
-	// Values in each datarow correspond positionally to schema entries.
-	var scriptResp graylogScriptingResponse
-	if err := json.NewDecoder(resp.Body).Decode(&scriptResp); err != nil {
+	// --- parse Graylog 7.x Views API response ---
+	// Response shape: { schema: [{field}], datarows: [[v0,v1,v2,...], ...] }
+	// Values in each datarow correspond positionally to schema fields.
+	var viewsResp graylogViewsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&viewsResp); err != nil {
 		log.Error().Err(err).Msg("graylog: failed to decode response")
 		http.Error(w, "Failed to parse Graylog response", http.StatusInternalServerError)
 		return
 	}
 
-	// Build field → column index map
-	colIndex := make(map[string]int, len(scriptResp.Schema))
-	for i, col := range scriptResp.Schema {
+	// Build field → column index map from schema
+	colIndex := make(map[string]int, len(viewsResp.Schema))
+	for i, col := range viewsResp.Schema {
 		colIndex[col.Field] = i
 	}
 
+	// Helper to safely extract string value from a datarow
 	str := func(row []interface{}, field string) string {
 		idx, ok := colIndex[field]
 		if !ok || idx >= len(row) {
@@ -154,11 +158,12 @@ func (r *Router) handleGraylogLogs(w http.ResponseWriter, req *http.Request) {
 		if s, ok := row[idx].(string); ok {
 			return s
 		}
+		// Convert numbers or other types to string
 		return fmt.Sprintf("%v", row[idx])
 	}
 
-	logs := make([]graylogMessage, 0, len(scriptResp.Datarows))
-	for _, row := range scriptResp.Datarows {
+	logs := make([]graylogMessage, 0, len(viewsResp.Datarows))
+	for _, row := range viewsResp.Datarows {
 		logs = append(logs, graylogMessage{
 			Timestamp: str(row, "timestamp"),
 			Source:    str(row, "source"),
