@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -44,13 +45,6 @@ func (r *Router) handleGraylogLogs(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	limit := 100
-	if l := req.URL.Query().Get("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
-			limit = parsed
-		}
-	}
-
 	// --- build Graylog Views API request body ---
 	body := map[string]interface{}{
 		"query_string": fmt.Sprintf("source:%s", vmName),
@@ -58,8 +52,7 @@ func (r *Router) handleGraylogLogs(w http.ResponseWriter, req *http.Request) {
 			"type":  "relative",
 			"range": 3600,
 		},
-		"limit":           limit,
-		"chunk_size":      limit,
+		"chunk_size":      100,
 		"fields_in_order": []string{"timestamp", "message"},
 	}
 
@@ -106,10 +99,27 @@ func (r *Router) handleGraylogLogs(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	limit := 100
+	if l := req.URL.Query().Get("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+
+	lines := strings.Split(string(raw), "\n")
+	for i, j := 0, len(lines)-1; i < j; i, j = i+1, j-1 {
+		lines[i], lines[j] = lines[j], lines[i]
+	}
+	if limit < len(lines) {
+		lines = lines[:limit]
+	}
+	result := strings.Join(lines, "\n")
+
 	// Log the raw response for debugging
-	log.Info().Str("vm", vmName).Str("raw_response", string(raw)).Msg("graylog: raw response")
+	// log.Info().Str("vm", vmName).Str("raw_response", string(raw)).Msg("graylog: raw response")
 
 	// Return raw CSV to frontend
 	w.Header().Set("Content-Type", "text/csv")
-	w.Write(raw)
+	//w.Write(raw)
+	w.Write([]byte(result))
 }

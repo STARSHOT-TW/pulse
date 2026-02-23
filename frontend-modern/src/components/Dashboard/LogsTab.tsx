@@ -54,7 +54,7 @@ function parseCSV(csv: string, vmName: string): LogEntry[] {
         entries.push({ time, app, message: msg });
     }
     
-    return entries.reverse();
+    return entries;
 }
 
 export const LogsTab: Component<LogsTabProps> = (props) => {
@@ -64,7 +64,7 @@ export const LogsTab: Component<LogsTabProps> = (props) => {
     const [data] = createResource(
         () => ({ vm: props.vmName, tick: tick() }),
         async ({ vm }) => {
-            const res = await fetch(`/api/graylog/logs?vm=${encodeURIComponent(vm)}`);
+            const res = await fetch(`/api/graylog/logs?vm=${encodeURIComponent(vm)}&limit=100`);
             if (!res.ok) {
                 const text = await res.text();
                 throw new Error(`${res.status} - ${text.trim()}`);
