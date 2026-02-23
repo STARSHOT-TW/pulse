@@ -13,38 +13,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// graylogMessage is what we send to the frontend for each log entry.
-type graylogMessage struct {
-	Timestamp string `json:"timestamp"`
-	Source    string `json:"source"`
-	Message   string `json:"message"`
-	Level     string `json:"level"`
-}
-
-// graylogLogsResponse is the full response returned to the frontend.
-type graylogLogsResponse struct {
-	Logs  []graylogMessage `json:"logs"`
-	Count int              `json:"count"`
-	VM    string           `json:"vm"`
-}
-
-// graylogViewsResponse is the JSON shape returned by
-// POST /api/views/search/messages (Graylog 7.x Views API).
-//
-// Example structure:
-//
-//	{
-//	  "schema": [ {"field":"timestamp",...}, {"field":"source",...}, ... ],
-//	  "datarows": [ ["2025-02-13T10:30:00.123Z", "ubuntu", "kernel: msg", "6"], ... ],
-//	  "metadata": { ... }
-//	}
-type graylogViewsResponse struct {
-	Schema []struct {
-		Field string `json:"field"`
-	} `json:"schema"`
-	Datarows [][]interface{} `json:"datarows"`
-}
-
 // handleGraylogLogs proxies a log search to Graylog for a given VM hostname.
 //
 // GET /api/graylog/logs?vm=<hostname>&limit=<n>
@@ -84,17 +52,15 @@ func (r *Router) handleGraylogLogs(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// --- build Graylog Views API request body ---
-	// POST /api/views/search/messages (Graylog 7.x)
-	// Match the exact structure from the working curl command.
 	body := map[string]interface{}{
 		"query_string": fmt.Sprintf("source:%s", vmName),
 		"timerange": map[string]interface{}{
 			"type":  "relative",
-			"range": 86400, // last 24 hours in seconds
+			"range": 86400,
 		},
-		"limit":      limit,
-		"chunk_size": limit,
-		"fields_in_order": []string{"timestamp", "source", "message", "level"},
+		"limit":           limit,
+		"chunk_size":      limit,
+		"fields_in_order": []string{"timestamp", "message"},
 	}
 
 	bodyBytes, err := json.Marshal(body)
@@ -104,7 +70,6 @@ func (r *Router) handleGraylogLogs(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Use the Views API endpoint: /api/views/search/messages
 	graylogURL := baseURL + "/api/views/search/messages"
 
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -133,48 +98,18 @@ func (r *Router) handleGraylogLogs(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// --- parse Graylog 7.x Views API response ---
-	// Response shape: { schema: [{field}], datarows: [[v0,v1,v2,...], ...] }
-	// Values in each datarow correspond positionally to schema fields.
-	var viewsResp graylogViewsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&viewsResp); err != nil {
-		log.Error().Err(err).Msg("graylog: failed to decode response")
-		http.Error(w, "Failed to parse Graylog response", http.StatusInternalServerError)
+	// --- just pass through the raw response ---
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Error().Err(err).Msg("graylog: failed to read response body")
+		http.Error(w, "Failed to read Graylog response", http.StatusInternalServerError)
 		return
 	}
 
-	// Build field → column index map from schema
-	colIndex := make(map[string]int, len(viewsResp.Schema))
-	for i, col := range viewsResp.Schema {
-		colIndex[col.Field] = i
-	}
+	// Log the raw response for debugging
+	log.Info().Str("vm", vmName).Str("raw_response", string(raw)).Msg("graylog: raw response")
 
-	// Helper to safely extract string value from a datarow
-	str := func(row []interface{}, field string) string {
-		idx, ok := colIndex[field]
-		if !ok || idx >= len(row) {
-			return ""
-		}
-		if s, ok := row[idx].(string); ok {
-			return s
-		}
-		// Convert numbers or other types to string
-		return fmt.Sprintf("%v", row[idx])
-	}
-
-	logs := make([]graylogMessage, 0, len(viewsResp.Datarows))
-	for _, row := range viewsResp.Datarows {
-		logs = append(logs, graylogMessage{
-			Timestamp: str(row, "timestamp"),
-			Source:    str(row, "source"),
-			Message:   str(row, "message"),
-			Level:     str(row, "level"),
-		})
-	}
-
-	out := graylogLogsResponse{Logs: logs, Count: len(logs), VM: vmName}
+	// Return raw JSON to frontend
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(out); err != nil {
-		log.Error().Err(err).Msg("graylog: failed to write response")
-	}
+	w.Write(raw)
 }
