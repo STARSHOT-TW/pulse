@@ -62,11 +62,7 @@ RUN --mount=type=cache,id=pulse-go-mod,target=/go/pkg/mod \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
       -ldflags="-s -w -X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME} -X main.GitCommit=${GIT_COMMIT} -X github.com/rcourtman/pulse-go-rewrite/internal/dockeragent.Version=${VERSION} ${LICENSE_LDFLAGS}" \
       -trimpath \
-      -o pulse-linux-amd64 ./cmd/pulse && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
-      -ldflags="-s -w -X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME} -X main.GitCommit=${GIT_COMMIT} -X github.com/rcourtman/pulse-go-rewrite/internal/dockeragent.Version=${VERSION} ${LICENSE_LDFLAGS}" \
-      -trimpath \
-      -o pulse-linux-arm64 ./cmd/pulse
+      -o pulse-linux-amd64 ./cmd/pulse
 
 
 
@@ -77,104 +73,7 @@ RUN --mount=type=cache,id=pulse-go-mod,target=/go/pkg/mod \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
       -ldflags="-s -w -X github.com/rcourtman/pulse-go-rewrite/internal/hostagent.Version=${VERSION}" \
       -trimpath \
-      -o pulse-host-agent-linux-amd64 ./cmd/pulse-host-agent && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
-      -ldflags="-s -w -X github.com/rcourtman/pulse-go-rewrite/internal/hostagent.Version=${VERSION}" \
-      -trimpath \
-      -o pulse-host-agent-linux-arm64 ./cmd/pulse-host-agent && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build \
-      -ldflags="-s -w -X github.com/rcourtman/pulse-go-rewrite/internal/hostagent.Version=${VERSION}" \
-      -trimpath \
-      -o pulse-host-agent-linux-armv7 ./cmd/pulse-host-agent && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 go build \
-      -ldflags="-s -w -X github.com/rcourtman/pulse-go-rewrite/internal/hostagent.Version=${VERSION}" \
-      -trimpath \
-      -o pulse-host-agent-linux-armv6 ./cmd/pulse-host-agent && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=386 go build \
-      -ldflags="-s -w -X github.com/rcourtman/pulse-go-rewrite/internal/hostagent.Version=${VERSION}" \
-      -trimpath \
-      -o pulse-host-agent-linux-386 ./cmd/pulse-host-agent && \
-    CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build \
-      -ldflags="-s -w -X github.com/rcourtman/pulse-go-rewrite/internal/hostagent.Version=${VERSION}" \
-      -trimpath \
-      -o pulse-host-agent-darwin-amd64 ./cmd/pulse-host-agent && \
-    CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build \
-      -ldflags="-s -w -X github.com/rcourtman/pulse-go-rewrite/internal/hostagent.Version=${VERSION}" \
-      -trimpath \
-      -o pulse-host-agent-darwin-arm64 ./cmd/pulse-host-agent && \
-    CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build \
-      -ldflags="-s -w -X github.com/rcourtman/pulse-go-rewrite/internal/hostagent.Version=${VERSION}" \
-      -trimpath \
-      -o pulse-host-agent-windows-amd64.exe ./cmd/pulse-host-agent && \
-    CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build \
-      -ldflags="-s -w -X github.com/rcourtman/pulse-go-rewrite/internal/hostagent.Version=${VERSION}" \
-      -trimpath \
-      -o pulse-host-agent-windows-arm64.exe ./cmd/pulse-host-agent && \
-    CGO_ENABLED=0 GOOS=windows GOARCH=386 go build \
-      -ldflags="-s -w -X github.com/rcourtman/pulse-go-rewrite/internal/hostagent.Version=${VERSION}" \
-      -trimpath \
-      -o pulse-host-agent-windows-386.exe ./cmd/pulse-host-agent && \
-    CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 go build \
-      -ldflags="-s -w -X github.com/rcourtman/pulse-go-rewrite/internal/hostagent.Version=${VERSION}" \
-      -trimpath \
-      -o pulse-host-agent-freebsd-amd64 ./cmd/pulse-host-agent && \
-    CGO_ENABLED=0 GOOS=freebsd GOARCH=arm64 go build \
-      -ldflags="-s -w -X github.com/rcourtman/pulse-go-rewrite/internal/hostagent.Version=${VERSION}" \
-      -trimpath \
-      -o pulse-host-agent-freebsd-arm64 ./cmd/pulse-host-agent
-
-# Build unified agent binaries for all platforms (for download endpoint)
-RUN --mount=type=cache,id=pulse-go-mod,target=/go/pkg/mod \
-    --mount=type=cache,id=pulse-go-build,target=/root/.cache/go-build \
-    VERSION="${VERSION:-v$(cat VERSION | tr -d '\n')}" && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-      -ldflags="-s -w -X main.Version=${VERSION}" \
-      -trimpath \
-      -o pulse-agent-linux-amd64 ./cmd/pulse-agent && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
-      -ldflags="-s -w -X main.Version=${VERSION}" \
-      -trimpath \
-      -o pulse-agent-linux-arm64 ./cmd/pulse-agent && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build \
-      -ldflags="-s -w -X main.Version=${VERSION}" \
-      -trimpath \
-      -o pulse-agent-linux-armv7 ./cmd/pulse-agent && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 go build \
-      -ldflags="-s -w -X main.Version=${VERSION}" \
-      -trimpath \
-      -o pulse-agent-linux-armv6 ./cmd/pulse-agent && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=386 go build \
-      -ldflags="-s -w -X main.Version=${VERSION}" \
-      -trimpath \
-      -o pulse-agent-linux-386 ./cmd/pulse-agent && \
-    CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build \
-      -ldflags="-s -w -X main.Version=${VERSION}" \
-      -trimpath \
-      -o pulse-agent-darwin-amd64 ./cmd/pulse-agent && \
-    CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build \
-      -ldflags="-s -w -X main.Version=${VERSION}" \
-      -trimpath \
-      -o pulse-agent-darwin-arm64 ./cmd/pulse-agent && \
-    CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build \
-      -ldflags="-s -w -X main.Version=${VERSION}" \
-      -trimpath \
-      -o pulse-agent-windows-amd64.exe ./cmd/pulse-agent && \
-    CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build \
-      -ldflags="-s -w -X main.Version=${VERSION}" \
-      -trimpath \
-      -o pulse-agent-windows-arm64.exe ./cmd/pulse-agent && \
-    CGO_ENABLED=0 GOOS=windows GOARCH=386 go build \
-      -ldflags="-s -w -X main.Version=${VERSION}" \
-      -trimpath \
-      -o pulse-agent-windows-386.exe ./cmd/pulse-agent && \
-    CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 go build \
-      -ldflags="-s -w -X main.Version=${VERSION}" \
-      -trimpath \
-      -o pulse-agent-freebsd-amd64 ./cmd/pulse-agent && \
-    CGO_ENABLED=0 GOOS=freebsd GOARCH=arm64 go build \
-      -ldflags="-s -w -X main.Version=${VERSION}" \
-      -trimpath \
-      -o pulse-agent-freebsd-arm64 ./cmd/pulse-agent
+      -o pulse-host-agent-linux-amd64 ./cmd/pulse-host-agent
 
 
 # Runtime image for the Docker agent (offered via --target agent_runtime)
@@ -193,13 +92,7 @@ COPY --from=backend-builder /app/pulse-agent-linux-* /tmp/
 
 # Select the appropriate architecture binary
 # Docker buildx automatically sets TARGETARCH (amd64, arm64, arm) and TARGETVARIANT (v7)
-RUN if [ "$TARGETARCH" = "arm64" ]; then \
-        cp /tmp/pulse-agent-linux-arm64 /usr/local/bin/pulse-agent; \
-    elif [ "$TARGETARCH" = "arm" ]; then \
-        cp /tmp/pulse-agent-linux-armv7 /usr/local/bin/pulse-agent; \
-    else \
-        cp /tmp/pulse-agent-linux-amd64 /usr/local/bin/pulse-agent; \
-    fi && \
+RUN cp /tmp/pulse-agent-linux-amd64 /usr/local/bin/pulse-agent && \
     chmod +x /usr/local/bin/pulse-agent && \
     rm -rf /tmp/pulse-agent-*
 
@@ -256,49 +149,8 @@ RUN mkdir -p /opt/pulse/bin
 
 # Main pulse server binary (for validation) - copy both architectures
 COPY --from=backend-builder /app/pulse-linux-amd64 /opt/pulse/bin/pulse-linux-amd64
-COPY --from=backend-builder /app/pulse-linux-arm64 /opt/pulse/bin/pulse-linux-arm64
-RUN if [ "$TARGETARCH" = "arm64" ]; then \
-        ln -s pulse-linux-arm64 /opt/pulse/bin/pulse; \
-    else \
-        ln -s pulse-linux-amd64 /opt/pulse/bin/pulse; \
-    fi
+RUN ln -s pulse-linux-amd64 /opt/pulse/bin/pulse
 
-
-# Host agent binaries (all platforms and architectures)
-COPY --from=backend-builder /app/pulse-host-agent-linux-amd64 /opt/pulse/bin/
-COPY --from=backend-builder /app/pulse-host-agent-linux-arm64 /opt/pulse/bin/
-COPY --from=backend-builder /app/pulse-host-agent-linux-armv7 /opt/pulse/bin/
-COPY --from=backend-builder /app/pulse-host-agent-linux-armv6 /opt/pulse/bin/
-COPY --from=backend-builder /app/pulse-host-agent-linux-386 /opt/pulse/bin/
-COPY --from=backend-builder /app/pulse-host-agent-darwin-amd64 /opt/pulse/bin/
-COPY --from=backend-builder /app/pulse-host-agent-darwin-arm64 /opt/pulse/bin/
-COPY --from=backend-builder /app/pulse-host-agent-windows-amd64.exe /opt/pulse/bin/
-COPY --from=backend-builder /app/pulse-host-agent-windows-arm64.exe /opt/pulse/bin/
-COPY --from=backend-builder /app/pulse-host-agent-windows-386.exe /opt/pulse/bin/
-COPY --from=backend-builder /app/pulse-host-agent-freebsd-amd64 /opt/pulse/bin/
-COPY --from=backend-builder /app/pulse-host-agent-freebsd-arm64 /opt/pulse/bin/
-# Create symlinks for Windows without .exe extension
-RUN ln -s pulse-host-agent-windows-amd64.exe /opt/pulse/bin/pulse-host-agent-windows-amd64 && \
-    ln -s pulse-host-agent-windows-arm64.exe /opt/pulse/bin/pulse-host-agent-windows-arm64 && \
-    ln -s pulse-host-agent-windows-386.exe /opt/pulse/bin/pulse-host-agent-windows-386
-
-# Unified agent binaries (all platforms and architectures)
-COPY --from=backend-builder /app/pulse-agent-linux-amd64 /opt/pulse/bin/
-COPY --from=backend-builder /app/pulse-agent-linux-arm64 /opt/pulse/bin/
-COPY --from=backend-builder /app/pulse-agent-linux-armv7 /opt/pulse/bin/
-COPY --from=backend-builder /app/pulse-agent-linux-armv6 /opt/pulse/bin/
-COPY --from=backend-builder /app/pulse-agent-linux-386 /opt/pulse/bin/
-COPY --from=backend-builder /app/pulse-agent-darwin-amd64 /opt/pulse/bin/
-COPY --from=backend-builder /app/pulse-agent-darwin-arm64 /opt/pulse/bin/
-COPY --from=backend-builder /app/pulse-agent-windows-amd64.exe /opt/pulse/bin/
-COPY --from=backend-builder /app/pulse-agent-windows-arm64.exe /opt/pulse/bin/
-COPY --from=backend-builder /app/pulse-agent-windows-386.exe /opt/pulse/bin/
-COPY --from=backend-builder /app/pulse-agent-freebsd-amd64 /opt/pulse/bin/
-COPY --from=backend-builder /app/pulse-agent-freebsd-arm64 /opt/pulse/bin/
-# Create symlinks for Windows without .exe extension
-RUN ln -s pulse-agent-windows-amd64.exe /opt/pulse/bin/pulse-agent-windows-amd64 && \
-    ln -s pulse-agent-windows-arm64.exe /opt/pulse/bin/pulse-agent-windows-arm64 && \
-    ln -s pulse-agent-windows-386.exe /opt/pulse/bin/pulse-agent-windows-386
 
 # Create config directory
 RUN mkdir -p /etc/pulse /data
@@ -315,12 +167,6 @@ ENV PULSE_DOCKER=true
 RUN adduser -D -u 1000 -g 1000 pulse && \
     chown -R pulse:pulse /app /etc/pulse /data /opt/pulse
 
-# Health check script (handles both HTTP and HTTPS)
-COPY docker-healthcheck.sh /docker-healthcheck.sh
-RUN chmod +x /docker-healthcheck.sh
-
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD /docker-healthcheck.sh
 
 # Use entrypoint script to handle UID/GID
 ENTRYPOINT ["/docker-entrypoint.sh"]

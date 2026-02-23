@@ -110,6 +110,7 @@ func EnsureHostAgentBinaries(version string) map[string]HostAgentBinary {
 	downloadMu.Lock()
 	defer downloadMu.Unlock()
 
+	return nil
 	// Re-check after acquiring the lock in case another goroutine restored them.
 	missing = findMissingHostAgentBinariesFn(binDirs)
 	if len(missing) == 0 {
