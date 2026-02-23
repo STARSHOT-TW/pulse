@@ -76,6 +76,7 @@ type Router struct {
 	configProfileHandler      *ConfigProfileHandler
 	licenseHandlers           *LicenseHandlers
 	logHandlers               *LogHandlers
+	graylogEnabled            bool
 	agentExecServer           *agentexec.Server
 	wsHub                     *websocket.Hub
 	reloadFunc                func() error
@@ -256,6 +257,13 @@ func (r *Router) setupRoutes() {
 	r.logHandlers = NewLogHandlers(r.config, r.persistence)
 	rbacHandlers := NewRBACHandlers(r.config)
 
+	r.graylogEnabled = os.Getenv("GRAYLOG_URL") != "" &&
+		os.Getenv("GRAYLOG_API_USER") != "" &&
+		os.Getenv("GRAYLOG_API_PASS") != ""
+	if r.graylogEnabled {
+		log.Info().Str("url", os.Getenv("GRAYLOG_URL")).Msg("Graylog integration enabled")
+	}
+
 	// API routes
 	r.mux.HandleFunc("/api/health", r.handleHealth)
 	r.mux.HandleFunc("/api/monitoring/scheduler/health", RequireAuth(r.config, r.handleSchedulerHealth))
@@ -274,6 +282,8 @@ func (r *Router) setupRoutes() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
+	// Graylog VM log viewer – enabled via GRAYLOG_URL / GRAYLOG_API_USER / GRAYLOG_API_PASS
+	r.mux.HandleFunc("/api/graylog/logs", RequireAuth(r.config, RequireScope(config.ScopeMonitoringRead, r.handleGraylogLogs)))
 	r.mux.HandleFunc("/api/agents/docker/report", RequireAuth(r.config, RequireScope(config.ScopeDockerReport, r.dockerAgentHandlers.HandleReport)))
 	r.mux.HandleFunc("/api/agents/kubernetes/report", RequireAuth(r.config, RequireScope(config.ScopeKubernetesReport, r.kubernetesAgentHandlers.HandleReport)))
 	r.mux.HandleFunc("/api/agents/host/report", RequireAuth(r.config, RequireScope(config.ScopeHostReport, r.hostAgentHandlers.HandleReport)))
