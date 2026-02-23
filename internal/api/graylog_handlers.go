@@ -44,7 +44,7 @@ func (r *Router) handleGraylogLogs(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	limit := 10
+	limit := 100
 	if l := req.URL.Query().Get("limit"); l != "" {
 		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
 			limit = parsed
@@ -56,7 +56,7 @@ func (r *Router) handleGraylogLogs(w http.ResponseWriter, req *http.Request) {
 		"query_string": fmt.Sprintf("source:%s", vmName),
 		"timerange": map[string]interface{}{
 			"type":  "relative",
-			"range": 86400,
+			"range": 3600,
 		},
 		"limit":           limit,
 		"chunk_size":      limit,
@@ -109,7 +109,7 @@ func (r *Router) handleGraylogLogs(w http.ResponseWriter, req *http.Request) {
 	// Log the raw response for debugging
 	log.Info().Str("vm", vmName).Str("raw_response", string(raw)).Msg("graylog: raw response")
 
-	// Return raw JSON to frontend
-	w.Header().Set("Content-Type", "application/json")
+	// Return raw CSV to frontend
+	w.Header().Set("Content-Type", "text/csv")
 	w.Write(raw)
 }
