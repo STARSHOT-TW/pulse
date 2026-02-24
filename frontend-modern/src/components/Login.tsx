@@ -432,11 +432,11 @@ const LoginForm: Component<{
         <div class="animate-fade-in">
           <div class="flex justify-center mb-8">
             <div class="relative group">
-              <div class="absolute -inset-1 bg-blue-600 rounded-full blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200 animate-pulse-slow"></div>
+              <div class=""></div>
               <img
                 src="/logo.svg"
-                alt="Pulse Logo"
-                class="relative w-24 h-24 transform transition duration-500 group-hover:scale-110"
+                alt="Logo"
+                class="relative w-40 h-24 transform transition duration-500 group-hover:scale-110"
               />
             </div>
           </div>
