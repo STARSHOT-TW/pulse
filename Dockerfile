@@ -62,7 +62,11 @@ RUN --mount=type=cache,id=pulse-go-mod,target=/go/pkg/mod \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
       -ldflags="-s -w -X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME} -X main.GitCommit=${GIT_COMMIT} -X github.com/rcourtman/pulse-go-rewrite/internal/dockeragent.Version=${VERSION} ${LICENSE_LDFLAGS}" \
       -trimpath \
-      -o pulse-linux-amd64 ./cmd/pulse
+      -o pulse-linux-amd64 ./cmd/pulse && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
+      -ldflags="-s -w -X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME} -X main.GitCommit=${GIT_COMMIT} -X github.com/rcourtman/pulse-go-rewrite/internal/dockeragent.Version=${VERSION} ${LICENSE_LDFLAGS}" \
+      -trimpath \
+      -o pulse-linux-arm64 ./cmd/pulse
 
 
 
@@ -73,8 +77,24 @@ RUN --mount=type=cache,id=pulse-go-mod,target=/go/pkg/mod \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
       -ldflags="-s -w -X github.com/rcourtman/pulse-go-rewrite/internal/hostagent.Version=${VERSION}" \
       -trimpath \
-      -o pulse-host-agent-linux-amd64 ./cmd/pulse-host-agent
+      -o pulse-host-agent-linux-amd64 ./cmd/pulse-host-agent && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
+      -ldflags="-s -w -X github.com/rcourtman/pulse-go-rewrite/internal/hostagent.Version=${VERSION}" \
+      -trimpath \
+      -o pulse-host-agent-linux-arm64 ./cmd/pulse-host-agent
 
+# Build unified agent binaries for all platforms (for download endpoint)
+RUN --mount=type=cache,id=pulse-go-mod,target=/go/pkg/mod \
+    --mount=type=cache,id=pulse-go-build,target=/root/.cache/go-build \
+    VERSION="${VERSION:-v$(cat VERSION | tr -d '\n')}" && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+      -ldflags="-s -w -X main.Version=${VERSION}" \
+      -trimpath \
+      -o pulse-agent-linux-amd64 ./cmd/pulse-agent && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
+      -ldflags="-s -w -X main.Version=${VERSION}" \
+      -trimpath \
+      -o pulse-agent-linux-arm64 ./cmd/pulse-agent
 
 # Runtime image for the Docker agent (offered via --target agent_runtime)
 FROM alpine:3.20 AS agent_runtime
@@ -92,7 +112,12 @@ COPY --from=backend-builder /app/pulse-agent-linux-* /tmp/
 
 # Select the appropriate architecture binary
 # Docker buildx automatically sets TARGETARCH (amd64, arm64, arm) and TARGETVARIANT (v7)
-RUN cp /tmp/pulse-agent-linux-amd64 /usr/local/bin/pulse-agent && \
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+        cp /tmp/pulse-agent-linux-arm64 /usr/local/bin/pulse-agent; \
+    else \
+        cp /tmp/pulse-agent-linux-amd64 /usr/local/bin/pulse-agent; \
+    fi && \
+    cp /tmp/pulse-agent-linux-amd64 /usr/local/bin/pulse-agent && \
     chmod +x /usr/local/bin/pulse-agent && \
     rm -rf /tmp/pulse-agent-*
 
@@ -148,9 +173,21 @@ RUN chmod 755 /opt/pulse/scripts/*.sh /opt/pulse/scripts/*.ps1
 RUN mkdir -p /opt/pulse/bin
 
 # Main pulse server binary (for validation) - copy both architectures
-COPY --from=backend-builder /app/pulse-linux-amd64 /opt/pulse/bin/pulse-linux-amd64
-RUN ln -s pulse-linux-amd64 /opt/pulse/bin/pulse
+COPY --from=backend-builder /app/pulse-linux-arm64 /opt/pulse/bin/pulse-linux-arm64
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+        ln -s pulse-linux-arm64 /opt/pulse/bin/pulse; \
+    else \
+        ln -s pulse-linux-amd64 /opt/pulse/bin/pulse; \
+    fi
 
+
+# Host agent binaries (all platforms and architectures)
+COPY --from=backend-builder /app/pulse-host-agent-linux-amd64 /opt/pulse/bin/
+COPY --from=backend-builder /app/pulse-host-agent-linux-arm64 /opt/pulse/bin/
+
+# Unified agent binaries (all platforms and architectures)
+COPY --from=backend-builder /app/pulse-agent-linux-amd64 /opt/pulse/bin/
+COPY --from=backend-builder /app/pulse-agent-linux-arm64 /opt/pulse/bin/
 
 # Create config directory
 RUN mkdir -p /etc/pulse /data
